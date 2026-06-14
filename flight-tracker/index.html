@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flight Tracker — Sepbesh 🐕</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0f;
+      color: #e6edf3;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 2rem;
+    }
+    h1 { font-size: 1.8rem; font-weight: 300; margin-bottom: 0.25rem; }
+    h1 span { color: #58a6ff; }
+    .subtitle { color: #8b949e; font-size: 0.9rem; margin-bottom: 2.5rem; }
+
+    #trackerBtn {
+      background: #58a6ff;
+      color: #0a0a0f;
+      border: none;
+      padding: 1rem 2.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 2rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    #trackerBtn:hover { background: #79bcff; transform: scale(1.03); }
+    #trackerBtn:active { transform: scale(0.97); }
+    #trackerBtn:disabled { background: #30363d; color: #8b949e; cursor: not-allowed; transform: none; }
+
+    .status { margin-top: 1.5rem; color: #8b949e; font-size: 0.9rem; min-height: 1.5rem; text-align: center; }
+    .status.error { color: #f85149; }
+    .status.success { color: #3fb950; }
+
+    .results { margin-top: 2rem; width: 100%; max-width: 600px; display: none; }
+    .results.visible { display: block; }
+
+    .flight-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .flight-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .flight-number { font-size: 1.1rem; font-weight: 600; color: #58a6ff; }
+    .flight-icao24 { font-size: 0.75rem; color: #484f58; font-family: monospace; }
+    .flight-route { font-size: 0.95rem; color: #e6edf3; margin-bottom: 0.4rem; }
+    .flight-route .from { color: #3fb950; }
+    .flight-route .to { color: #f85149; }
+    .flight-details { display: flex; gap: 1.5rem; font-size: 0.8rem; color: #8b949e; }
+    .flight-details span strong { color: #e6edf3; }
+    .no-flights {
+      text-align: center;
+      color: #8b949e;
+      padding: 2rem;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+    }
+    .no-flights strong { display: block; font-size: 1.1rem; color: #e6edf3; margin-bottom: 0.5rem; }
+
+    .coords { margin-top: 2rem; font-size: 0.75rem; color: #484f58; font-family: monospace; }
+  </style>
+</head>
+<body>
+
+  <h1>✈️ Flight Tracker <span>🐕</span></h1>
+  <p class="subtitle">See what's flying over you right now</p>
+
+  <button id="trackerBtn">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
+    Find Flights Over Me
+  </button>
+
+  <p class="status" id="status"></p>
+
+  <div class="results" id="results"></div>
+  <p class="coords" id="coords"></p>
+
+  <script>
+    const btn = document.getElementById('trackerBtn');
+    const status = document.getElementById('status');
+    const results = document.getElementById('results');
+    const coordsEl = document.getElementById('coords');
+
+    // ICAO airline code → name lookup
+    const airlineNames = {
+      'AAL': 'American Airlines', 'UAL': 'United Airlines', 'DAL': 'Delta Air Lines',
+      'SWA': 'Southwest Airlines', 'JBU': 'JetBlue', 'ASA': 'Alaska Airlines',
+      'FFT': 'Frontier Airlines', 'SKW': 'SkyWest', 'RPA': 'Republic Airways',
+      'AWE': 'US Airways', 'NKS': 'Spirit Airlines', 'FFT': 'Frontier Airlines',
+      'LYM': 'JetSMART', 'VOI': 'Viva Air', 'AMX': 'Aeroméxico',
+      'ASQ': 'ExpressJet', 'SCX': 'Sun Country', 'HAL': 'Hawaiian Airlines',
+      'CAL': 'China Airlines', 'CEA': 'China Eastern', 'CSN': 'China Southern',
+      'CPA': 'Cathay Pacific', 'ANA': 'ANA', 'JAL': 'Japan Airlines',
+      'KAL': 'Korean Air', 'AAR': 'Asiana Airlines', 'TAM': 'LATAM',
+      'LAN': 'LATAM Chile', 'LPE': 'LATAM Peru', 'ARG': 'Aerolineas Argentinas',
+      'AVA': 'Avianca', 'copa': 'Copa Airlines', 'IBE': 'Iberia',
+      'VLG': 'Vueling', 'AEA': 'Air Europa', 'RYR': 'Ryanair',
+      'EZY': 'easyJet', 'BAW': 'British Airways', 'AFR': 'Air France',
+      'DLH': 'Lufthansa', 'KLM': 'KLM', 'SAS': 'SAS',
+      'THA': 'Thai Airways', 'SIA': 'Singapore Airlines', 'MAS': 'Malaysia Airlines',
+      'QFA': 'Qantas', 'ANZ': 'Air New Zealand', 'VA': 'Virgin Australia',
+      'UAE': 'Emirates', 'QTR': 'Qatar Airways', 'ETD': 'Etihad',
+      'GLO': 'Gol', 'AZA': 'Alitalia', 'TAP': 'TAP Portugal',
+      'FIN': 'Finnair', 'AAL': 'American Airlines', 'CPA': 'Cathay Pacific',
+    };
+
+    function getAirline(callsign) {
+      if (!callsign) return null;
+      const icao = callsign.replace(/\d/g, '').trim().toUpperCase();
+      return airlineNames[icao] || null;
+    }
+
+    function formatTime(seconds) {
+      if (!seconds) return '—';
+      const d = new Date(seconds * 1000);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatAltitude(feet) {
+      if (!feet) return '—';
+      return feet.toLocaleString() + ' ft';
+    }
+
+    function formatSpeed(mps) {
+      if (!mps) return '—';
+      return Math.round(mps * 1.944) + ' kts';
+    }
+
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      btn.querySelector('svg').style.animation = 'spin 1s linear infinite';
+      status.textContent = '📍 Getting your location…';
+      status.className = 'status';
+      results.className = 'results';
+      results.innerHTML = '';
+      coordsEl.textContent = '';
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude.toFixed(4);
+          const lon = pos.coords.longitude.toFixed(4);
+          coordsEl.textContent = `${lat}°N, ${lon}°W`;
+          status.textContent = `📡 Scanning skies over ${lat}°N ${lon}°W…`;
+          fetchFlights(lat, lon);
+        },
+        (err) => {
+          btn.disabled = false;
+          btn.querySelector('svg').style.animation = '';
+          status.textContent = '❌ Could not get your location. Please allow location access and try again.';
+          status.className = 'status error';
+        },
+        { timeout: 10000 }
+      );
+    });
+
+    async function fetchFlights(lat, lon) {
+      // Bounding box: ±0.5 degrees around user (~55km radius)
+      const lamin = (parseFloat(lat) - 0.5).toFixed(4);
+      const lamax = (parseFloat(lat) + 0.5).toFixed(4);
+      const lomin = (parseFloat(lon) - 0.5).toFixed(4);
+      const lomax = (parseFloat(lon) + 0.5).toFixed(4);
+
+      const url = `https://corsproxy.io/?${encodeURIComponent(`https://opensky-network.org/api/states/all?lamin=${lamin}&lamax=${lamax}&lomin=${lomin}&lomax=${lomax}`)}`;
+
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+
+        btn.disabled = false;
+        btn.querySelector('svg').style.animation = '';
+        results.className = 'results visible';
+
+        if (!data.states || data.states.length === 0) {
+          results.innerHTML = `
+            <div class="no-flights">
+              <strong>No flights detected</strong>
+              Try again in a few minutes — ADS-B coverage depends on reception.
+            </div>`;
+          status.textContent = '✓ Scan complete';
+          status.className = 'status success';
+          return;
+        }
+
+        const flights = data.states;
+        status.textContent = `✓ Found ${flights.length} flight${flights.length !== 1 ? 's' : ''} nearby`;
+        status.className = 'status success';
+
+        results.innerHTML = flights.map(state => {
+          // OpenSky state vector fields (index-based):
+          // 0: icao24, 1: callsign, 4: lat, 5: lon, 6: altitude,
+          // 7: on_ground, 8: speed, 9: heading, 10: time
+          const icao24 = state[0] || '—';
+          const callsign = (state[1] || '').trim() || '—';
+          const altitude = state[6]; // meters
+          const speed = state[8]; // m/s
+          const heading = state[9];
+          const lat = state[4];
+          const lon = state[5];
+          const airline = getAirline(callsign);
+          const label = airline ? `${airline} (${callsign})` : callsign;
+
+          const altitudeFt = altitude ? Math.round(altitude * 3.281) : null;
+          const speedKts = speed ? Math.round(speed * 1.944) : null;
+
+          // Direction compass
+          const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+          const dir = heading !== null ? dirs[Math.round(heading / 45) % 8] : '—';
+
+          return `
+          <div class="flight-card">
+            <div class="flight-header">
+              <span class="flight-number">${label !== '—' ? label : 'Unknown flight'}</span>
+              <span class="flight-icao24">${icao24}</span>
+            </div>
+            <div class="flight-details">
+              ${altitudeFt ? `<span>Alt: <strong>${altitudeFt.toLocaleString()} ft</strong></span>` : ''}
+              ${speedKts ? `<span>Speed: <strong>${speedKts} kts</strong></span>` : ''}
+              ${heading !== null ? `<span>HDG: <strong>${dir} (${Math.round(heading)}°)</strong></span>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+
+      } catch (e) {
+        btn.disabled = false;
+        btn.querySelector('svg').style.animation = '';
+        status.textContent = '❌ Could not reach OpenSky. Try again.';
+        status.className = 'status error';
+      }
+    }
+  </script>
+
+  <style>
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</body>
+</html>
