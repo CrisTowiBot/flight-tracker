@@ -197,22 +197,35 @@
         transform: translateX(-50%);
         width: 100vw;
         max-width: 100vw;
-        border-radius: 16px 16px 0 0;
+        border-radius: 20px 20px 0 0;
         border-bottom: none;
         margin-top: 0;
-        z-index: 200;
-        box-shadow: 0 -4px 30px rgba(0,0,0,0.5);
-        animation: slideFromBottom 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-        max-height: 85vh;
+        z-index: 9999;
+        box-shadow: 0 -8px 40px rgba(0,0,0,0.7);
+        animation: slideFromBottom 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+        max-height: 90vh;
         overflow-y: auto;
+        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(10px);
+        background: rgba(10, 16, 24, 0.95);
       }
       #detailPanel.visible {
         display: flex !important;
         flex-direction: column;
         gap: 0.5rem;
       }
+      /* Drag handle — visual cue at top of sheet */
+      #detailPanel::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255,255,255,0.2);
+        margin: 12px auto 4px;
+      }
       @keyframes slideFromBottom {
-        from { transform: translateX(-50%) translateY(100%); }
+        from { transform: translateX(-50%) translateY(110%); }
         to { transform: translateX(-50%) translateY(0); }
       }
       #detailPanel .detail-grid {
