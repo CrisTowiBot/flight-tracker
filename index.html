@@ -174,7 +174,7 @@
       const lomin = (parseFloat(lon) - 0.5).toFixed(4);
       const lomax = (parseFloat(lon) + 0.5).toFixed(4);
 
-      const url = `https://corsproxy.io/?${encodeURIComponent(`https://opensky-network.org/api/states/all?lamin=${lamin}&lamax=${lamax}&lomin=${lomin}&lomax=${lomax}`)}`;
+      const url = `https://api.cors.lol/?url=${encodeURIComponent(`https://opensky-network.org/api/states/all?lamin=${lamin}&lamax=${lamax}&lomin=${lomin}&lomax=${lomax}`)}`;
 
       try {
         const resp = await fetch(url);
