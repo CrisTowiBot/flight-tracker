@@ -186,14 +186,11 @@
       animation: slideUp 0.3s ease;
     }
     #detailPanel.visible { display: block; }
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
 
-    /* Mobile bottom sheet overlay */
+    /* Mobile bottom sheet — override must come AFTER desktop rule and match its specificity */
     @media (max-width: 600px) {
       #detailPanel {
+        display: none;
         position: fixed;
         bottom: 0;
         left: 50%;
@@ -210,7 +207,7 @@
         overflow-y: auto;
       }
       #detailPanel.visible {
-        display: flex;
+        display: flex !important;
         flex-direction: column;
         gap: 0.5rem;
       }
@@ -224,6 +221,10 @@
       #detailPanel .route-bar {
         margin-top: 0.5rem;
       }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     #closeDetail {
