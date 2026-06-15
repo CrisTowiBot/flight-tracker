@@ -925,19 +925,38 @@
     // CORS proxy chain — first working proxy is used
     const PROXY_CHAIN = [
       'https://api.cors.lol/',
+      'https://corsproxy.io/?',
+      'https://proxy.cors.sh/',
     ];
+    const PROXY_TIMEOUT_MS = 8000;
+
+    async function fetchWithAbort(url, signal) {
+      const resp = await fetch(url, {
+        signal,
+        mode: 'cors',
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const text = await resp.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error(`Invalid JSON from proxy: ${text.slice(0, 80)}`);
+      }
+    }
 
     async function fetchViaProxy(targetUrl) {
       let lastError;
       for (const proxy of PROXY_CHAIN) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
         try {
-          const url = proxy + '?url=' + encodeURIComponent(targetUrl);
-          const resp = await fetch(url, { timeout: 10000 });
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const data = await resp.json();
+          const url = proxy + 'url=' + encodeURIComponent(targetUrl);
+          const data = await fetchWithAbort(url, controller.signal);
+          clearTimeout(timeout);
           if (data.error) throw new Error(data.error);
           return data;
         } catch (e) {
+          clearTimeout(timeout);
           lastError = e;
           console.warn('Proxy failed:', proxy, e.message);
         }
@@ -1010,6 +1029,8 @@
             const delay = isRateLimit ? baseDelayMs * Math.pow(2, attempt) : baseDelayMs;
             console.warn(`Fetch attempt ${attempt + 1} failed: ${lastError.message}. Retrying in ${delay}ms…`);
             await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            console.error('All fetch retries exhausted:', lastError.message);
           }
         }
       }
